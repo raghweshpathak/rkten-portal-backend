@@ -4,10 +4,16 @@ const cors = require("cors");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
+const User = require("./src/models/User");
+const auth = require("./src/middleware/auth");
+
 const app = express();
+
+/* ================= Middlewares ================= */
 
 app.use(cors());
 app.use(express.json());
+app.use("/uploads", express.static("uploads"));
 
 /* ================= Mongo ================= */
 
@@ -17,11 +23,6 @@ mongoose
   .catch(err => console.log("❌ Mongo error:", err));
 
 /* ================= Models ================= */
-
-const User = mongoose.model("User", {
-  email: String,
-  password: String
-});
 
 const Employee = mongoose.model("Employee", {
   name: String,
@@ -37,41 +38,32 @@ const Project = mongoose.model("Project", {
   status: String
 });
 
-/* ================= Auth ================= */
+/* ================= Routes ================= */
 
-const auth = (req, res, next) => {
-  const header = req.headers.authorization;
-
-  if (!header)
-    return res.status(401).json({ message: "No token" });
-
-  const token = header.split(" ")[1];
-
-  if (!token)
-    return res.status(401).json({ message: "Bad token format" });
-
-  try {
-    const decoded = jwt.verify(token, "secret123");
-    req.user = decoded;
-    next();
-  } catch (err) {
-    return res.status(401).json({ message: "Invalid token" });
-  }
-};
+app.use("/tasks", auth, require("./src/routes/taskRoutes"));
+app.use("/comments", auth, require("./src/routes/commentRoutes"));
 
 /* ================= Register ================= */
 
-app.post("/register", async (req, res, next) => {
+app.post("/register", async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, role, employeeId } = req.body;
 
     const hashed = await bcrypt.hash(password, 10);
-    const user = new User({ email, password: hashed });
+
+    const user = new User({
+      email,
+      password: hashed,
+      role: role || "employee",
+      employeeId
+    });
 
     await user.save();
+
     res.json({ message: "User created" });
+
   } catch (err) {
-    next(err);
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -79,8 +71,6 @@ app.post("/register", async (req, res, next) => {
 
 app.post("/login", async (req, res) => {
   try {
-    console.log("LOGIN BODY:", req.body);
-
     const { email, password } = req.body;
 
     const user = await User.findOne({ email });
@@ -90,14 +80,14 @@ app.post("/login", async (req, res) => {
     if (!ok) return res.status(400).json({ message: "Wrong password" });
 
     const token = jwt.sign({ id: user._id }, "secret123");
-    res.json({ token });
+
+    res.json({ token, role: user.role });
 
   } catch (err) {
     console.error("LOGIN ERROR:", err);
     res.status(500).json({ error: err.message });
   }
 });
-
 
 /* ================= Employees ================= */
 

@@ -1,4 +1,8 @@
-app.get("/employees", auth, async (req, res) => {
+
+const auth = require("../middleware/auth");
+const role = require("../middleware/role");
+
+router.get("/", auth, role(["admin"]), async (req, res) => {
   try {
     const list = await Employee.find();
     res.json(list);
