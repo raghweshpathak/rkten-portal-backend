@@ -81,7 +81,12 @@ app.post("/login", async (req, res) => {
 
     const token = jwt.sign({ id: user._id }, "secret123");
 
-    res.json({ token, role: user.role });
+    res.json({
+      token,
+      role: user.role,
+      name: user.email
+    });
+
 
   } catch (err) {
     console.error("LOGIN ERROR:", err);
@@ -102,13 +107,36 @@ app.get("/employees", auth, async (req, res, next) => {
 
 app.post("/employees", auth, async (req, res, next) => {
   try {
-    const emp = new Employee(req.body);
+    const { name, email, role, salary, password } = req.body;
+
+    // 1️⃣ Employee record
+    const emp = new Employee({ name, email, role, salary });
     await emp.save();
-    res.json(emp);
+
+    // 2️⃣ Login user create
+    const rawPassword = password || "123456";
+
+    const hashed = await bcrypt.hash(rawPassword, 10);
+
+    const user = new User({
+      email,
+      password: hashed,
+      role: "employee",
+      employeeId: emp._id
+    });
+
+    await user.save();
+
+    res.json({
+      employee: emp,
+      defaultPassword: rawPassword
+    });
+
   } catch (err) {
     next(err);
   }
 });
+
 
 app.put("/employees/:id", auth, async (req, res, next) => {
   try {

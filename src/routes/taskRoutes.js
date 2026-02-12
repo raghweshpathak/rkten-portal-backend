@@ -2,6 +2,7 @@ const express = require("express");
 const Task = require("../models/Task");
 const upload = require("../middleware/upload");
 const auth = require("../middleware/auth");
+const mongoose = require("mongoose");
 
 
 const router = express.Router();
@@ -9,17 +10,17 @@ const router = express.Router();
 
 // ================= GET tasks by project =================
 router.get("/:projectId", auth, async (req, res) => {
-  let query = { projectId: req.params.projectId };
+  try {
+    const tasks = await Task.find({
+      projectId: req.params.projectId
+    }).populate("assignedTo", "name email");
 
-  // employee only sees own tasks
-  if (req.user.role === "employee") {
-    query.assignedTo = req.user.employeeId;
+    res.json(tasks);
+
+  } catch (err) {
+    console.error("GET TASK ERROR:", err);
+    res.status(500).json({ error: err.message });
   }
-
-  const tasks = await Task.find(query)
-    .populate("assignedTo", "name email");
-
-  res.json(tasks);
 });
 
 

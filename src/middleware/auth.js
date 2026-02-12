@@ -1,25 +1,18 @@
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 
-const auth = async (req, res, next) => {
-  const header = req.headers.authorization;
-
-  if (!header)
-    return res.status(401).json({ message: "No token" });
-
-  const token = header.split(" ")[1];
-
+module.exports = async (req, res, next) => {
   try {
+    const token = req.headers.authorization.split(" ")[1];
     const decoded = jwt.verify(token, "secret123");
 
     const user = await User.findById(decoded.id);
-    req.user = user;
+
+    req.user = user; // ⭐ attach user to request
 
     next();
-
   } catch (err) {
-    return res.status(401).json({ message: "Invalid token" });
+    res.status(401).json({ message: "Unauthorized" });
   }
 };
 
-module.exports = auth;
